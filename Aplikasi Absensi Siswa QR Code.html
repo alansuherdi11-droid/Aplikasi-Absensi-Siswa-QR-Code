@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Absensi Sekolah QR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        .hidden-section { display: none; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+    <nav class="bg-blue-600 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold"><i class="fas fa-school mr-2"></i>SiAbsen QR</h1>
+            <button onclick="logout()" class="text-sm bg-red-500 px-3 py-1 rounded hover:bg-red-600">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 max-w-lg">
+
+        <div id="page-dashboard" class="section-page">
+            <div class="bg-white p-4 rounded-lg shadow mb-6 text-center">
+                <h2 class="text-gray-600">Selamat Datang, Admin</h2>
+                <p class="text-2xl font-bold text-blue-600" id="clock">00:00:00</p>
+                <p class="text-sm text-gray-500" id="date-now">-</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="nav('page-scan')" class="p-4 bg-white rounded-lg shadow hover:bg-blue-50 flex flex-col items-center">
+                    <i class="fas fa-qrcode text-3xl text-blue-500 mb-2"></i>
+                    <span class="font-semibold">Scan QR</span>
+                </button>
+                <button onclick="nav('page-siswa')" class="p-4 bg-white rounded-lg shadow hover:bg-blue-50 flex flex-col items-center">
+                    <i class="fas fa-users text-3xl text-green-500 mb-2"></i>
+                    <span class="font-semibold">Data Siswa</span>
+                </button>
+                <button onclick="nav('page-rekap')" class="p-4 bg-white rounded-lg shadow hover:bg-blue-50 flex flex-col items-center">
+                    <i class="fas fa-chart-bar text-3xl text-purple-500 mb-2"></i>
+                    <span class="font-semibold">Rekap & Grafik</span>
+                </button>
+                <button onclick="exportExcel()" class="p-4 bg-white rounded-lg shadow hover:bg-blue-50 flex flex-col items-center">
+                    <i class="fas fa-file-excel text-3xl text-green-700 mb-2"></i>
+                    <span class="font-semibold">Export Excel</span>
+                </button>
+                <button onclick="nav('page-settings')" class="p-4 bg-white rounded-lg shadow hover:bg-blue-50 flex flex-col items-center">
+                    <i class="fas fa-cog text-3xl text-gray-500 mb-2"></i>
+                    <span class="font-semibold">Pengaturan</span>
+                </button>
+                <button onclick="resetData()" class="p-4 bg-white rounded-lg shadow hover:bg-red-50 flex flex-col items-center">
+                    <i class="fas fa-trash text-3xl text-red-500 mb-2"></i>
+                    <span class="font-semibold">Reset Data</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="page-scan" class="section-page hidden-section">
+            <button onclick="nav('page-dashboard')" class="mb-4 text-blue-600"><i class="fas fa-arrow-left"></i> Kembali</button>
+            <div class="bg-white p-4 rounded shadow">
+                <h3 class="font-bold text-lg mb-2">Scan QR Code Siswa</h3>
+                <div id="reader" width="100%"></div>
+                <div id="scan-result" class="mt-4 p-3 bg-green-100 text-green-800 rounded hidden">
+                    Berhasil: <span id="scan-name" class="font-bold"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-siswa" class="section-page hidden-section">
+            <button onclick="nav('page-dashboard')" class="mb-4 text-blue-600"><i class="fas fa-arrow-left"></i> Kembali</button>
+            
+            <div class="bg-white p-4 rounded shadow mb-4">
+                <h3 class="font-bold mb-2">Tambah Siswa</h3>
+                <input type="text" id="input-nis" placeholder="NIS" class="w-full p-2 border rounded mb-2">
+                <input type="text" id="input-nama" placeholder="Nama Siswa" class="w-full p-2 border rounded mb-2">
+                <input type="text" id="input-wa" placeholder="No WA (628...)" class="w-full p-2 border rounded mb-2">
+                <button onclick="addStudent()" class="w-full bg-blue-600 text-white p-2 rounded">Simpan</button>
+            </div>
+
+            <div class="bg-white p-4 rounded shadow">
+                <h3 class="font-bold mb-2">Daftar Siswa</h3>
+                <ul id="list-siswa" class="divide-y">
+                    </ul>
+            </div>
+        </div>
+
+        <div id="page-rekap" class="section-page hidden-section">
+            <button onclick="nav('page-dashboard')" class="mb-4 text-blue-600"><i class="fas fa-arrow-left"></i> Kembali</button>
+            <div class="bg-white p-4 rounded shadow">
+                <h3 class="font-bold mb-4">Riwayat Absensi Hari Ini</h3>
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="p-2">Nama</th>
+                            <th class="p-2">Waktu</th>
+                            <th class="p-2">Ket</th>
+                            <th class="p-2">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-absen">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="page-settings" class="section-page hidden-section">
+            <button onclick="nav('page-dashboard')" class="mb-4 text-blue-600"><i class="fas fa-arrow-left"></i> Kembali</button>
+            <div class="bg-white p-4 rounded shadow">
+                <h3 class="font-bold mb-2">Profil Sekolah</h3>
+                <input type="text" id="set-sekolah" placeholder="Nama Sekolah" class="w-full p-2 border rounded mb-2">
+                <button onclick="saveSettings()" class="bg-green-600 text-white px-4 py-2 rounded">Simpan</button>
+            </div>
+        </div>
+    </div>
+<hr class="my-4 border-gray-300">
+<h3 class="font-bold mb-2">Backup & Restore Data</h3>
+<p class="text-sm text-gray-500 mb-2">Unduh data untuk disimpan di Google Drive, atau upload untuk memulihkan data.</p>
+
+<div class="grid grid-cols-2 gap-2">
+    <button onclick="backupData()" class="bg-blue-600 text-white p-2 rounded flex items-center justify-center">
+        <i class="fas fa-download mr-2"></i> Download Backup
+    </button>
+    
+    <label class="bg-orange-500 text-white p-2 rounded flex items-center justify-center cursor-pointer">
+        <i class="fas fa-upload mr-2"></i> Restore Data
+        <input type="file" id="file-input" class="hidden" onchange="restoreData(this)">
+    </label>
+</div>
+    <script>
+        // --- DATABASE SEDERHANA (LocalStorage) ---
+        let students = JSON.parse(localStorage.getItem('students')) || [];
+        let attendance = JSON.parse(localStorage.getItem('attendance')) || [];
+        
+        // --- FUNGSI NAVIGASI ---
+        function nav(pageId) {
+            document.querySelectorAll('.section-page').forEach(el => el.classList.add('hidden-section'));
+            document.getElementById(pageId).classList.remove('hidden-section');
+            if(pageId === 'page-siswa') renderStudents();
+            if(pageId === 'page-rekap') renderRekap();
+            if(pageId === 'page-scan') startScanner();
+        }
+
+        // --- FUNGSI WAKTU ---
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+            document.getElementById('date-now').innerText = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }, 1000);
+
+        // --- MANAJEMEN SISWA ---
+        function addStudent() {
+            const nis = document.getElementById('input-nis').value;
+            const nama = document.getElementById('input-nama').value;
+            const wa = document.getElementById('input-wa').value;
+            
+            if(nis && nama) {
+                students.push({ nis, nama, wa });
+                localStorage.setItem('students', JSON.stringify(students));
+                alert('Siswa berhasil ditambahkan!');
+                document.getElementById('input-nis').value = '';
+                document.getElementById('input-nama').value = '';
+                document.getElementById('input-wa').value = '';
+                renderStudents();
+            } else {
+                alert('NIS dan Nama wajib diisi');
+            }
+        }
+
+        function renderStudents() {
+            const list = document.getElementById('list-siswa');
+            list.innerHTML = '';
+            students.forEach((s, index) => {
+                list.innerHTML += `
+                    <li class="py-2 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">${s.nama}</p>
+                            <p class="text-xs text-gray-500">NIS: ${s.nis}</p>
+                        </div>
+                        <div>
+                           <button onclick="manualAbsen('${s.nis}', 'Hadir')" class="bg-green-100 text-green-700 px-2 py-1 text-xs rounded">Hadir</button>
+                           <button onclick="manualAbsen('${s.nis}', 'Sakit')" class="bg-yellow-100 text-yellow-700 px-2 py-1 text-xs rounded">S</button>
+                           <button onclick="deleteStudent(${index})" class="text-red-500 ml-2"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </li>
+                `;
+            });
+        }
+
+        function deleteStudent(index) {
+            if(confirm('Hapus siswa ini?')) {
+                students.splice(index, 1);
+                localStorage.setItem('students', JSON.stringify(students));
+                renderStudents();
+            }
+        }
+
+        // --- SCANNER QR CODE ---
+        let html5QrcodeScanner;
+        function startScanner() {
+            if(!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "reader", { fps: 10, qrbox: 250 });
+                html5QrcodeScanner.render(onScanSuccess);
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Asumsi QR berisi NIS
+            let siswa = students.find(s => s.nis === decodedText);
+            
+            if(siswa) {
+                manualAbsen(siswa.nis, 'Hadir');
+                document.getElementById('scan-result').classList.remove('hidden');
+                document.getElementById('scan-name').innerText = siswa.nama;
+                
+                // Audio Beep
+                let audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+                audio.play();
+
+                // Stop scanning sementara agar tidak double input
+                html5QrcodeScanner.pause();
+                setTimeout(() => {
+                    document.getElementById('scan-result').classList.add('hidden');
+                    html5QrcodeScanner.resume();
+                }, 3000);
+            } else {
+                alert('Siswa tidak ditemukan! Pastikan QR Code berisi NIS yang benar.');
+            }
+        }
+
+        // --- SISTEM ABSENSI ---
+        function manualAbsen(nis, status) {
+            const siswa = students.find(s => s.nis === nis);
+            if(!siswa) return;
+
+            const today = new Date().toLocaleDateString('id-ID');
+            const time = new Date().toLocaleTimeString();
+
+            // Cek apakah sudah absen hari ini
+            const alreadyPresent = attendance.find(a => a.nis === nis && a.date === today);
+            
+            if(!alreadyPresent) {
+                attendance.push({
+                    nis: siswa.nis,
+                    nama: siswa.nama,
+                    date: today,
+                    time: time,
+                    status: status,
+                    wa: siswa.wa
+                });
+                localStorage.setItem('attendance', JSON.stringify(attendance));
+                if(status === 'Hadir') {
+                    // alert(`Absensi ${siswa.nama} Berhasil!`);
+                }
+            } else {
+                alert('Siswa ini sudah absen hari ini.');
+            }
+        }
+
+        function renderRekap() {
+            const tbody = document.getElementById('table-absen');
+            tbody.innerHTML = '';
+            const today = new Date().toLocaleDateString('id-ID');
+            
+            // Filter absen hari ini
+            const todayAbsence = attendance.filter(a => a.date === today);
+
+            todayAbsence.forEach(a => {
+                let waLink = `https://wa.me/${a.wa}?text=Halo, ananda ${a.nama} telah hadir di sekolah pada pukul ${a.time}`;
+                tbody.innerHTML += `
+                    <tr class="border-b">
+                        <td class="p-2">${a.nama}</td>
+                        <td class="p-2">${a.time}</td>
+                        <td class="p-2"><span class="bg-green-100 text-green-800 px-2 rounded text-xs">${a.status}</span></td>
+                        <td class="p-2">
+                            <a href="${waLink}" target="_blank" class="text-green-600"><i class="fab fa-whatsapp"></i></a>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- EKSPOR EXCEL (CSV) ---
+        function exportExcel() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Tanggal,Nama,NIS,Waktu,Status\n"; // Header
+
+            attendance.forEach(function(rowArray) {
+                let row = `${rowArray.date},${rowArray.nama},${rowArray.nis},${rowArray.time},${rowArray.status}`;
+                csvContent += row + "\n";
+            });
+
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "rekap_absensi.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        function resetData() {
+            if(confirm('PERINGATAN: Ini akan menghapus SEMUA data siswa dan absensi. Lanjutkan?')) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        function logout() {
+            alert('Anda telah logout (Simulasi).');
+            location.reload();
+        }
+
+        // Start di dashboard
+        nav('page-dashboard');
+// --- FUNGSI BACKUP & RESTORE ---
+
+function backupData() {
+    // 1. Ambil semua data
+    const dataBackup = {
+        students: JSON.parse(localStorage.getItem('students')) || [],
+        attendance: JSON.parse(localStorage.getItem('attendance')) || [],
+        timestamp: new Date().toLocaleString()
+    };
+
+    // 2. Ubah jadi file JSON
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataBackup));
+    const downloadAnchorNode = document.createElement('a');
+    
+    // 3. Buat nama file dengan tanggal
+    const date = new Date().toISOString().slice(0, 10);
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "backup_absen_" + date + ".json");
+    
+    // 4. Trigger download
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+
+    alert('File Backup berhasil diunduh! Silakan simpan file ini ke Google Drive Anda agar aman.');
+}
+
+function restoreData(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            if (confirm(`Apakah Anda yakin ingin mengembalikan data dari tanggal: ${data.timestamp}? Data saat ini akan ditimpa.`)) {
+                // Simpan ke LocalStorage
+                localStorage.setItem('students', JSON.stringify(data.students));
+                localStorage.setItem('attendance', JSON.stringify(data.attendance));
+                
+                // Update variabel di memori
+                students = data.students;
+                attendance = data.attendance;
+                
+                alert('Data berhasil dipulihkan!');
+                location.reload(); // Refresh halaman
+            }
+        } catch (error) {
+            alert('File tidak valid! Pastikan Anda mengupload file .json hasil backup aplikasi ini.');
+        }
+    };
+    reader.readAsText(file);
+}
+    </script>
+</body>
+</html>
